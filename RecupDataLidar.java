@@ -25,22 +25,30 @@ class RecupDataLidar  {
     public static int distance = 12000000;
     public static int distanceObstacle = 12000000;
     public static int angleObstacle = 0;
+    public static int ObstaclePlusProche = distanceObstacle;
+    public static byte distanceEnvoyée = 0;
     public static int angle = 0;
     private static String path = "C:\\Users\\mesba\\Documents\\INSA\\3A\\S6\\SAE Fauteuil\\Logiciel lidar\\ultra_simple.exe";
     private static String portCom = "COM3";
+    private static Socket socket;
+    private static ProcessBuilder lidar;
+
+
+    private static byte unsignedConversion(int value) {
+        return (byte) (value & 0xFF);}
 
 
     public static void main (String args[]) {
 
         //Création du process pour la programme du LIDAR
-        ProcessBuilder lidar = new ProcessBuilder(path, portCom);
-
+        lidar = new ProcessBuilder(path, portCom);
+        
         // L'ajout d'une interface graphique peut se faire
         
         try {
             // Connexion au serveur au serveur en TCP-IP
-            InetAddress serveur = InetAddress.getByName("10.4.15.53");
-            Socket socket = new Socket(serveur, 9632);
+            InetAddress serveur = InetAddress.getByName("10.4.17.57");
+            socket = new Socket(serveur, 6340);
 
             // Création du stream de sortie pour le serveur
             PrintStream out = new PrintStream(socket.getOutputStream());
@@ -58,6 +66,34 @@ class RecupDataLidar  {
                 line2 = in.readLine();
                 System.out.println("debut : "+line2);
             }
+
+            // Thread de temps réel
+            new Thread(() -> {
+            while (socket.isConnected()) {
+                try {
+                    if (ObstaclePlusProche > 127) ObstaclePlusProche = 127;
+                    distanceEnvoyée = (byte) ObstaclePlusProche;
+                    distanceEnvoyée = unsignedConversion(distanceEnvoyée);
+                    out.println(distanceEnvoyée);
+                    distanceObstacle = 12000000;
+                    System.out.println(distanceEnvoyée);
+                    Thread.sleep(100); // 100ms delay
+                } catch (InterruptedException e) {
+                    System.out.println("Thread interrupted: " + e.getMessage());
+                    break;
+                }
+            }
+            }).start();
+
+            // Thread de fermeture d'application
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println( "\n[Shutdown Hook] Évènement intercepté : La JVM s'arrête !");
+            try {
+                if(socket != null && socket.isConnected()) socket.close();
+                if (process != null && process.isAlive()) process.destroy();
+                System.out.println("[Shutdown Hook] Nettoyage terminé.");}
+            catch (IOException ex) {ex.printStackTrace();}
+            }));
 
             // Boucle de fonctionement du Lidar
             while (true) {
@@ -81,6 +117,7 @@ class RecupDataLidar  {
                 // analyse des données
                 /* */ 
                 //System.out.println("Q : "+finale[8]);
+
                 if (finale[8].equals("47") && distanceObstacle > distance && (angle < 4500 || angle > 31500)){
                     //System.out.println("Good value ");
                     distanceObstacle = distance;
@@ -91,8 +128,11 @@ class RecupDataLidar  {
 
                     // Obstacle devant le fauteuil
                     if (distanceObstacle != 12000000){
-                        out.println(distanceObstacle/1000);
-                        
+                        ObstaclePlusProche = distanceObstacle/1000;
+                        //out.println(distanceObstacle/1000);
+
+                        //-------------- Traitement de données si nécessaire --------------
+
                         /*if (distanceObstacle < 70000 && distanceObstacle > 50000){
                             out.println(7);              
                             System.out.println("1");
@@ -115,11 +155,12 @@ class RecupDataLidar  {
                         else {
                             
                         }*/
+                       //------------------------------------------------------------------
                     }
-                    distanceObstacle = 12000000;
                 }
-             //
+            
             }
+            
 
     } catch (IOException ex) {
         ex.printStackTrace();
