@@ -32,6 +32,7 @@ class RecupDataLidar  {
     private static String portCom = "COM3";
     private static Socket socket;
     private static ProcessBuilder lidar;
+    private static DataOutputStream dataOutputStream;
 
 
     private static byte unsignedConversion(int value) {
@@ -47,11 +48,12 @@ class RecupDataLidar  {
         
         try {
             // Connexion au serveur au serveur en TCP-IP
-            InetAddress serveur = InetAddress.getByName("10.4.17.57");
+            InetAddress serveur = InetAddress.getByName("10.8.19.103");
             socket = new Socket(serveur, 6340);
 
             // Création du stream de sortie pour le serveur
-            PrintStream out = new PrintStream(socket.getOutputStream());
+            //PrintStream out = new PrintStream(socket.getOutputStream());
+            dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
             // Démarage du lidar (A voir pour le mettre dans une classe à part)
             Process process = lidar.start();
@@ -71,14 +73,14 @@ class RecupDataLidar  {
             new Thread(() -> {
             while (socket.isConnected()) {
                 try {
-                    if (ObstaclePlusProche > 127) ObstaclePlusProche = 127;
-                    distanceEnvoyée = (byte) ObstaclePlusProche;
-                    distanceEnvoyée = unsignedConversion(distanceEnvoyée);
-                    out.println(distanceEnvoyée);
-                    distanceObstacle = 12000000;
-                    System.out.println(distanceEnvoyée);
-                    Thread.sleep(100); // 100ms delay
-                } catch (InterruptedException e) {
+                    if (ObstaclePlusProche != 0) {
+                        if (ObstaclePlusProche > 500) ObstaclePlusProche = 500;
+                        dataOutputStream.writeInt(ObstaclePlusProche);
+                        distanceObstacle = 12000000;
+                        System.out.println(ObstaclePlusProche);
+                        Thread.sleep(100); // 100ms delay
+                    }
+                } catch (Exception e) {
                     System.out.println("Thread interrupted: " + e.getMessage());
                     break;
                 }
@@ -106,20 +108,11 @@ class RecupDataLidar  {
                 }
                 
                 String[] finale = complet.split("[ S]");        //Séparation des valeurs
-                /*System.out.println("distance : "+finale[6]);
-                System.out.println("angle : "+finale[4]);
-                System.out.println("Q : "+finale[8]);*/
                 
                 distance = Integer.parseInt(finale[6]);
                 angle = Integer.parseInt(finale[4]);
 
-
-                // analyse des données
-                /* */ 
-                //System.out.println("Q : "+finale[8]);
-
                 if (finale[8].equals("47") && distanceObstacle > distance && (angle < 4500 || angle > 31500)){
-                    //System.out.println("Good value ");
                     distanceObstacle = distance;
                     angleObstacle = angle;
                 
@@ -129,8 +122,6 @@ class RecupDataLidar  {
                     // Obstacle devant le fauteuil
                     if (distanceObstacle != 12000000){
                         ObstaclePlusProche = distanceObstacle/1000;
-                        //out.println(distanceObstacle/1000);
-
                         //-------------- Traitement de données si nécessaire --------------
 
                         /*if (distanceObstacle < 70000 && distanceObstacle > 50000){
