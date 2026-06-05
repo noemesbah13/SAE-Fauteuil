@@ -20,12 +20,14 @@ import java.awt.event.*;
 */
 
 
+
 class RecupDataLidar  {
 
-    public static int distance = 12000000;
-    public static int distanceObstacle = 12000000;
+    public static int UNKNOWN = 12000000;
+    public static int distance = UNKNOWN;
+    public static int distanceObstacle = UNKNOWN;
     public static int angleObstacle = 0;
-    public static int ObstaclePlusProche = distanceObstacle;
+     public static int ObstaclePlusProche = distanceObstacle;
     public static byte distanceEnvoyée = 0;
     public static int angle = 0;
     private static String path = "C:\\Users\\mesba\\Documents\\INSA\\3A\\S6\\SAE Fauteuil\\Logiciel lidar\\ultra_simple.exe";
@@ -35,20 +37,16 @@ class RecupDataLidar  {
     private static DataOutputStream dataOutputStream;
 
 
-    private static byte unsignedConversion(int value) {
-        return (byte) (value & 0xFF);}
-
-
     public static void main (String args[]) {
 
-        //Création du process pour la programme du LIDAR
+        //Création du process pour le programme du LIDAR
         lidar = new ProcessBuilder(path, portCom);
         
         // L'ajout d'une interface graphique peut se faire
         
         try {
             // Connexion au serveur au serveur en TCP-IP
-            InetAddress serveur = InetAddress.getByName("10.8.19.103");
+            InetAddress serveur = InetAddress.getByName("192.168.1.27");
             socket = new Socket(serveur, 6340);
 
             // Création du stream de sortie pour le serveur
@@ -73,13 +71,11 @@ class RecupDataLidar  {
             new Thread(() -> {
             while (socket.isConnected()) {
                 try {
-                    if (ObstaclePlusProche != 0) {
-                        if (ObstaclePlusProche > 500) ObstaclePlusProche = 500;
-                        dataOutputStream.writeInt(ObstaclePlusProche);
-                        distanceObstacle = 12000000;
-                        System.out.println(ObstaclePlusProche);
-                        Thread.sleep(100); // 100ms delay
-                    }
+                    
+                    dataOutputStream.writeInt(ObstaclePlusProche);
+                    System.out.print("Donnees envoyees ");
+                    System.out.println(ObstaclePlusProche);
+                    Thread.sleep(100); // 100ms delay
                 } catch (Exception e) {
                     System.out.println("Thread interrupted: " + e.getMessage());
                     break;
@@ -108,51 +104,37 @@ class RecupDataLidar  {
                 }
                 
                 String[] finale = complet.split("[ S]");        //Séparation des valeurs
-                
-                distance = Integer.parseInt(finale[6]);
-                angle = Integer.parseInt(finale[4]);
 
-                if (finale[8].equals("47") && distanceObstacle > distance && (angle < 4500 || angle > 31500)){
-                    distanceObstacle = distance;
-                    angleObstacle = angle;
-                
-                }
-                if (angle>=35900 || angle<=100){
+                distance = (int)Float.parseFloat(finale[6])/100;
+                angle = (int)Float.parseFloat(finale[4])/100;
 
-                    // Obstacle devant le fauteuil
-                    if (distanceObstacle != 12000000){
-                        ObstaclePlusProche = distanceObstacle/1000;
-                        //-------------- Traitement de données si nécessaire --------------
-
-                        /*if (distanceObstacle < 70000 && distanceObstacle > 50000){
-                            out.println(7);              
-                            System.out.println("1");
+                //Mesure valide
+                if (finale[8].equals("47"))
+                {
+                    //Zone de mesure
+                    if((angle < 45 || angle > 315))
+                    {
+                        //Retiens l"élément le plus proche
+                        if(distanceObstacle > distance)
+                        {
+                            distanceObstacle = distance;
                         }
-                        //100 cm
-                        else if (distanceObstacle < 50000 && distanceObstacle > 20000){
-                            out.println();              // Obstacle à une distance moyenne
-                            System.out.println("2");
+                    }
+                    else
+                    {
+                        //En dehors de la zone de mesure
+                        //MaJ données à envoyer
+                        if(distanceObstacle != UNKNOWN)
+                        {
+                            ObstaclePlusProche = distanceObstacle;
+                            if (ObstaclePlusProche > 1000) ObstaclePlusProche = 1000;
+                            distanceObstacle = UNKNOWN;
                         }
-                        //75 cm
-                        else if (distanceObstacle < 75000 && distanceObstacle > 5000){
-                            out.println();              // Obstacle à une distance moyenne
-                            System.out.println("2");
-                        }
-                        // 50 cm
-                        else if (distanceObstacle < 5000){
-                            out.println(4);             // Obstacle très proche
-                            System.out.println("4");
-                        }
-                        else {
-                            
-                        }*/
-                       //------------------------------------------------------------------
                     }
                 }
             
             }
             
-
     } catch (IOException ex) {
         ex.printStackTrace();
     
